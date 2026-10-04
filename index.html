@@ -59,10 +59,14 @@ async function load(){
  me=PR.find(p=>p.id===uid);
  if(me?.is_admin)AL=(await sb.from("allowed_emails").select("*")).data||[];
  render()}
-async function init(){
- const {data}=await sb.auth.getSession();uid=data.session?.user.id||null;
- if(uid){await load();sb.channel("x").on("postgres_changes",{event:"*",schema:"public"},()=>{if(!/INPUT|TEXTAREA/.test(document.activeElement.tagName))load()}).subscribe()}else render()}
-sb.auth.onAuthStateChange((ev)=>{if(ev==="SIGNED_IN"&&!uid)location.reload();if(ev==="SIGNED_OUT")location.reload()});
+let started=false,chan=null;
+async function start(id){
+ started=true;uid=id;me=null;if(chan){sb.removeChannel(chan);chan=null}
+ try{
+  if(uid){await load();chan=sb.channel("x").on("postgres_changes",{event:"*",schema:"public"},()=>{if(!/INPUT|TEXTAREA/.test(document.activeElement.tagName))load()}).subscribe()}else render()
+ }catch(err){document.getElementById("m").innerHTML='<div class="card">Erreur de chargement : '+e(err.message||err)+'</div>'}}
+sb.auth.onAuthStateChange((ev,ses)=>{const id=ses?.user?.id||null;if(started&&id===uid)return;setTimeout(()=>start(id),0)});
+setTimeout(()=>{if(!started)sb.auth.getSession().then(({data})=>start(data.session?.user.id||null))},3000);
 
 function authV(){return`<div class="card"><h3>Connexion</h3><label>E-mail</label><input id="em" type="email" autocomplete="email"><label>Mot de passe (6 caractères min.)</label><input id="pw" type="password" autocomplete="current-password">
 <div class="row" style="margin-top:12px"><button class="btn" style="flex:1" onclick="login()">Se connecter</button><button class="btn o" style="flex:1" onclick="signup()">Créer mon compte</button></div>
@@ -151,5 +155,4 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.
 fab.onclick=()=>{form={};render()};
 if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
 setInterval(()=>{if(me&&!form&&!modal&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName))render()},60000);
-init();
 </script></body></html>
