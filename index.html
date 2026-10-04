@@ -32,6 +32,7 @@ label{display:block;font-size:13px;color:var(--mu);margin:10px 0 3px}
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script>
 const sb=supabase.createClient("https://kqmkmatdqpalygykmonz.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxbWttYXRkcXBhbHlneWttb256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExNDAwNzksImV4cCI6MjEwNjcxNjA3OX0.YFxnaqhf5QNObFUgBYMK4HL1bnu0_InjANpKayde42k");
+let EM={},mmod=null;
 const D=864e5,SW=["#2f6f5e","#d35400","#8e44ad","#2e86c1","#c0392b","#d4ac0d","#16a085","#e84393","#6c5ce7","#5d4037","#7f8c8d","#34495e"];
 let S={def_delay:3,min_delay:1,max_delay:14,requester_chooses:true},PR=[],R=[],A=[],M=[],IV=[],AL=[],uid=null,me=null,tab="req",mon=new Date(),form=null,modal=null;
 const e=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -57,7 +58,7 @@ async function load(){
  const [a,b,c,d,f,g]=await Promise.all(["profiles","settings","requests","answers","messages","invited"].map(t=>sb.from(t).select("*")));
  PR=a.data||[];S=(b.data||[])[0]||S;R=(c.data||[]).sort((x,y)=>y.created_at<x.created_at?-1:1);A=d.data||[];M=f.data||[];IV=g.data||[];
  me=PR.find(p=>p.id===uid);
- if(me?.is_admin)AL=(await sb.from("allowed_emails").select("*")).data||[];
+ if(me?.is_admin){AL=(await sb.from("allowed_emails").select("*")).data||[];EM=Object.fromEntries(((await sb.rpc("list_members")).data||[]).map(x=>[x.id,x.email]))}
  render()}
 let started=false,chan=null;
 async function start(id){
@@ -106,15 +107,17 @@ function fm(){const q=form.edit?R.find(x=>x.id===form.edit):null,c=S.requester_c
  <label>Délai de réponse (${S.min_delay} à ${S.max_delay} jours)</label><input type="number" id="f4" min="${S.min_delay}" max="${S.max_delay}" value="${S.def_delay}" ${c?"":"disabled"}>
  <div class="mu">${c?"Sans refus à l'échéance, la demande est validée automatiquement.":"Délai imposé par l'admin : "+S.def_delay+" jours."}</div>
  <div class="row" style="margin-top:12px"><button class="btn o" onclick="closeForm()">Annuler</button><button class="btn" onclick="send()">${q?"Relancer la validation":"Envoyer à la famille"}</button></div></div>`}
-function set(){const a=me.is_admin;
+function set(){const a=me.is_admin,have=Object.values(EM).map(v=>String(v).toLowerCase());
  return`<h3>Mon profil</h3><div class="card"><label>Mon nom</label><input value="${e(me.name)}" onchange="prof({name:this.value.trim()||me.name})">
  <label>Ma couleur</label><div class="row" style="justify-content:flex-start;flex-wrap:wrap">${SW.map(c=>{const o=taken(c);return`<span title="${o?"Prise par "+nm(o.id):""}" onclick="setColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;opacity:${o?.2:1};border:3px solid ${c===me.color?"var(--tx)":"transparent"}"></span>`}).join("")}<input type="color" value="${me.color}" style="width:44px;padding:2px" onchange="setColor(this.value)"></div>
  <div class="mu">Chaque couleur est unique. S'il n'y en a plus de libre, choisissez-en une nouvelle avec le sélecteur.</div><button class="btn o" style="margin-top:10px" onclick="sb.auth.signOut()">Se déconnecter</button></div>
  ${a?`<h3>Réglages</h3><div class="card"><label>Délai par défaut (jours)</label><input type="number" value="${S.def_delay}" onchange="cfg({def_delay:+this.value})"><label>Délai minimum</label><input type="number" value="${S.min_delay}" onchange="cfg({min_delay:+this.value})"><label>Délai maximum</label><input type="number" value="${S.max_delay}" onchange="cfg({max_delay:+this.value})">
  <label><input type="checkbox" style="width:auto" ${S.requester_chooses?"checked":""} onchange="cfg({requester_chooses:this.checked})"> Le demandeur peut choisir le délai</label></div>
- <h3>Invitations</h3><div class="card"><div class="mu">Seules ces adresses peuvent créer un compte. Envoyez ensuite le lien de l'appli.</div>${AL.map(x=>`<div class="row resp"><span>${e(x.email)}${x.make_admin?" (admin)":""}</span><button class="btn o" onclick="unallow('${e(x.email)}')">Retirer</button></div>`).join("")}
+ <h3>Membres</h3><div class="card">${PR.map(p=>`<div class="resp"><span>${dot(p.id)}<b>${e(p.name)}</b> <span class="mu">${p.is_super?"Super admin":p.is_admin?"Admin":"Membre"}${p.id===uid?" (vous)":""}</span></span><div class="mu">${e(EM[p.id]||"")}</div>${p.id!==uid&&!p.is_super?`<div class="row" style="justify-content:flex-start;margin-top:4px"><button class="btn o" onclick="setAdmin('${p.id}',${!p.is_admin})">${p.is_admin?"Retirer admin":"Nommer admin"}</button>${p.is_admin&&!me.is_super?"":`<button class="btn r" onclick="mmod='${p.id}';render()">Supprimer</button>`}</div>`:""}</div>`).join("")}</div>
+ <h3>Invitations en attente</h3><div class="card"><div class="mu">Seules les adresses invitées peuvent créer un compte. Envoyez ensuite le lien de l'appli.</div>${AL.filter(x=>!have.includes(x.email.toLowerCase())).map(x=>`<div class="row resp"><span>${e(x.email)}${x.make_admin?" (admin)":""}</span><button class="btn o" onclick="unallow('${e(x.email)}')">Retirer</button></div>`).join("")}
  <div class="row" style="margin-top:8px"><input id="ne" type="email" placeholder="e-mail à inviter"><button class="btn" onclick="allow()">Inviter</button></div></div>`:""}
  <div class="card"><b>Règles</b><div class="mu">• Un seul refus bloque la demande → discussion.<br>• Silence à l'échéance = accord ; tous d'accord = confirmée tout de suite.<br>• Modification incluse dans l'ancienne période : seuls les refus sont revalidés.<br>• Chevauchement possible si séjour partagé.</div></div>`}
+function mdm(){return`<div style="position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;padding:20px;z-index:9"><div class="card" style="max-width:340px;margin:0"><b>Supprimer le compte de ${nm(mmod)} ?</b><p class="mu">Cette personne ne pourra plus se connecter. Ses demandes, réponses et messages seront supprimés définitivement.</p><div class="row"><button class="btn o" style="flex:1" onclick="mmod=null;render()">Non, garder</button><button class="btn r" style="flex:1" onclick="removeMember()">Oui, supprimer</button></div></div></div>`}
 function mdl(){const q=R.find(x=>x.id===modal);if(!q)return"";
  return`<div style="position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;padding:20px;z-index:9"><div class="card" style="max-width:340px;margin:0"><b>Annuler cette demande ?</b><p class="mu">Séjour du ${fd(q.date_from)} au ${fd(q.date_to)}. ${st(q)==="c"?"Elle est déjà confirmée : ":""}la discussion sera supprimée.</p><div class="row"><button class="btn o" style="flex:1" onclick="modal=null;render()">Non, la garder</button><button class="btn r" style="flex:1" onclick="del(${q.id})">Oui, annuler</button></div></div></div>`}
 function render(){
@@ -125,7 +128,7 @@ function render(){
  let h="";
  if(form)h=fm();else if(tab==="req"){const g=(t,f)=>{const l=R.filter(f);return l.length?`<h3>${t}</h3>`+l.map(card).join(""):""};h=g("À traiter / en cours",q=>st(q)!=="c")+g("Confirmées",q=>st(q)==="c")||'<p class="mu">Aucune demande pour le moment.</p>'}
  else if(tab==="cal")h=cal();else h=set();
- m.innerHTML=h+(modal?mdl():"")}
+ m.innerHTML=h+(modal?mdl():"")+(mmod?mdm():"")}
 
 function openEdit(id){form={edit:id};render()}
 function closeForm(){form=null;render()}
@@ -150,6 +153,8 @@ async function inv(id,u){await db(sb.from("invited").insert({request_id:id,user_
 async function prof(o){await db(sb.from("profiles").update(o).eq("id",uid));load()}
 function setColor(c){const o=taken(c);if(o){alert("Couleur trop proche de celle de "+rn(o.id)+".");render();return}prof({color:c})}
 async function cfg(o){await db(sb.from("settings").update(o).eq("id",1));load()}
+async function setAdmin(id,f){if(await db(sb.rpc("set_admin",{target:id,makeadmin:f})))load()}
+async function removeMember(){const id=mmod;mmod=null;if(await db(sb.rpc("delete_member",{target:id})))load();else render()}
 async function allow(){const v=ne.value.trim().toLowerCase();if(!v)return;await db(sb.from("allowed_emails").insert({email:v}));load()}
 async function unallow(v){await db(sb.from("allowed_emails").delete().eq("email",v));load()}
 
