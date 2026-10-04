@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f6f5e"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png">
+<title>La Maison</title>
+<style>
+:root{--bg:#faf7f2;--card:#fff;--tx:#2b2b2b;--mu:#777;--ac:#2f6f5e;--ok:#2f8f5b;--wa:#d98a1f;--ko:#c0392b;--bd:#e6e0d6;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root{--bg:#1b1c1a;--card:#262826;--tx:#eee;--mu:#9a9a9a;--ac:#5fb59d;--bd:#3a3c39}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.4 system-ui,-apple-system,sans-serif;max-width:560px;margin:auto;padding-bottom:70px}
+header{padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:center}h1{font-size:20px;margin:0}
+select,input,textarea,button{font:inherit;color:var(--tx)}
+input,textarea{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:8px;width:100%}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--card);border-top:1px solid var(--bd);max-width:560px;margin:auto;padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;padding:12px 4px;background:none;border:0;color:var(--mu);font-size:13px}nav button.on{color:var(--ac);font-weight:600}
+main{padding:8px 16px}.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin:10px 0}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:center}
+.tag{font-size:12px;padding:2px 8px;border-radius:99px;color:#fff;white-space:nowrap}.ok{background:var(--ok)}.wa{background:var(--wa)}.ko{background:var(--ko)}
+.mu{color:var(--mu);font-size:13px}.btn{border:0;border-radius:8px;padding:9px 12px;background:var(--ac);color:#fff;cursor:pointer}
+.btn.o{background:none;border:1px solid var(--bd);color:var(--tx)}.btn.r{background:var(--ko)}
+.g{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center}.g div{padding:6px 0;border-radius:6px;font-size:13px;min-height:38px}.g .h{color:var(--mu);font-size:11px;min-height:0}
+.d i{display:block;height:4px;border-radius:2px;margin-top:2px}.resp{font-size:13px;margin:4px 0}
+label{display:block;font-size:13px;color:var(--mu);margin:10px 0 3px}
+.fab{position:fixed;right:16px;bottom:calc(64px + env(safe-area-inset-bottom,0px));border-radius:99px;box-shadow:0 2px 8px #0004;padding:12px 18px}
+.warn{background:#d98a1f22;border:1px solid var(--wa);border-radius:8px;padding:8px;font-size:13px;margin-top:8px}
+.out header,.out nav,.out .fab{display:none}
+</style></head><body class="out">
+<header><h1>🏡 La Maison</h1><div class="mu" id="who"></div></header>
+<main id="m"><p class="mu">Chargement…</p></main>
+<button class="btn fab" id="fab" style="display:none">+ Demander</button>
+<nav><button data-t="req" class="on">Demandes</button><button data-t="cal">Calendrier</button><button data-t="set">Réglages</button></nav>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const sb=supabase.createClient("https://kqmkmatdqpalygykmonz.supabase.co","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtxbWttYXRkcXBhbHlneWttb256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTExNDAwNzksImV4cCI6MjEwNjcxNjA3OX0.YFxnaqhf5QNObFUgBYMK4HL1bnu0_InjANpKayde42k");
+const D=864e5,SW=["#2f6f5e","#d35400","#8e44ad","#2e86c1","#c0392b","#d4ac0d","#16a085","#e84393","#6c5ce7","#5d4037","#7f8c8d","#34495e"];
+let S={def_delay:3,min_delay:1,max_delay:14,requester_chooses:true},PR=[],R=[],A=[],M=[],IV=[],AL=[],uid=null,me=null,tab="req",mon=new Date(),form=null,modal=null;
+const e=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const P=id=>PR.find(p=>p.id===id)||{name:"?",color:"#999"},rn=id=>P(id).name,nm=id=>e(rn(id));
+const dot=id=>`<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${P(id).color};margin-right:5px"></span>`;
+const rgb=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)),dist=(a,b)=>Math.hypot(...rgb(a).map((v,i)=>v-rgb(b)[i]));
+const taken=c=>PR.find(p=>p.id!==uid&&dist(p.color,c)<60);
+const rs=q=>Object.fromEntries(A.filter(x=>x.request_id===q.id).map(x=>[x.user_id,x]));
+const th=q=>M.filter(x=>x.request_id===q.id).sort((a,b)=>a.created_at<b.created_at?-1:1);
+const iv=q=>IV.filter(x=>x.request_id===q.id).map(x=>x.user_id);
+const dl=q=>new Date(q.deadline).getTime(),ov=(a,b)=>a.date_from<=b.date_to&&a.date_to>=b.date_from;
+const all=q=>{const r=rs(q),o=PR.filter(p=>p.id!==q.by_user);return o.length>0&&o.every(p=>r[p.id]?.verdict==="ok")};
+const st=q=>{if(Object.values(rs(q)).some(x=>x.verdict==="no"))return"d";if(all(q))return"c";return Date.now()>=dl(q)?"c":"p"};
+const tg=q=>({c:'<span class="tag ok">Confirmée</span>',p:'<span class="tag wa">En attente</span>',d:'<span class="tag ko">À discuter</span>'}[st(q)]);
+const fd=s=>new Date(s+"T12:00").toLocaleDateString("fr-FR",{day:"numeric",month:"short"});
+const left=q=>{const h=Math.max(0,Math.round((dl(q)-Date.now())/36e5));return h>=48?Math.round(h/24)+" j":h+" h"};
+const iso=o=>new Date(Date.now()+o*D).toISOString().slice(0,10);
+const conc=q=>{const s=new Set([q.by_user,...iv(q)]),r=rs(q);for(const n in r)if(r[n].verdict==="no")s.add(n);th(q).forEach(m=>s.add(m.user_id));R.forEach(o=>{if(o!==q&&ov(o,q))s.add(o.by_user)});return[...s]};
+const bar=q=>{const c=P(q.by_user).color,s=st(q);return`background:${s==="d"?`repeating-linear-gradient(45deg,${c},${c} 3px,transparent 3px,transparent 6px)`:c};opacity:${s==="p"?.55:1}`};
+const db=async p=>{const {error}=await p;if(error)alert(error.message);return!error};
+
+async function load(){
+ const [a,b,c,d,f,g]=await Promise.all(["profiles","settings","requests","answers","messages","invited"].map(t=>sb.from(t).select("*")));
+ PR=a.data||[];S=(b.data||[])[0]||S;R=(c.data||[]).sort((x,y)=>y.created_at<x.created_at?-1:1);A=d.data||[];M=f.data||[];IV=g.data||[];
+ me=PR.find(p=>p.id===uid);
+ if(me?.is_admin)AL=(await sb.from("allowed_emails").select("*")).data||[];
+ render()}
+async function init(){
+ const {data}=await sb.auth.getSession();uid=data.session?.user.id||null;
+ if(uid){await load();sb.channel("x").on("postgres_changes",{event:"*",schema:"public"},()=>{if(!/INPUT|TEXTAREA/.test(document.activeElement.tagName))load()}).subscribe()}else render()}
+sb.auth.onAuthStateChange((ev)=>{if(ev==="SIGNED_IN"&&!uid)location.reload();if(ev==="SIGNED_OUT")location.reload()});
+
+function authV(){return`<div class="card"><h3>Connexion</h3><label>E-mail</label><input id="em" type="email" autocomplete="email"><label>Mot de passe (6 caractères min.)</label><input id="pw" type="password" autocomplete="current-password">
+<div class="row" style="margin-top:12px"><button class="btn" style="flex:1" onclick="login()">Se connecter</button><button class="btn o" style="flex:1" onclick="signup()">Créer mon compte</button></div>
+<p class="mu">Seules les adresses invitées par l'administrateur peuvent créer un compte.</p></div>`}
+async function login(){const {error}=await sb.auth.signInWithPassword({email:em.value.trim(),password:pw.value});if(error)alert("Connexion impossible : "+error.message)}
+async function signup(){const {error}=await sb.auth.signUp({email:em.value.trim(),password:pw.value});if(error)alert(/database|invit/i.test(error.message)?"Cette adresse n'a pas été invitée.":error.message)}
+
+function resp(q){const r=rs(q);return PR.filter(p=>p.id!==q.by_user).map(p=>{const x=r[p.id];return`<div class="resp">${x?(x.verdict==="ok"?"✅":"❌"):"⏳"} ${dot(p.id)}<b>${e(p.name)}</b> ${x?e(x.comment):'<span class="mu">pas encore répondu (accord tacite)</span>'}</div>`}).join("")}
+function thr(q){const c=conc(q),o=PR.filter(p=>!c.includes(p.id)),t=th(q);
+return`<div style="margin-top:8px;border-top:1px solid var(--bd);padding-top:8px"><b>💬 Discussion</b> <span class="mu">(${t.length})</span>
+<div class="mu">🔔 Concernés : ${c.map(x=>dot(x)+nm(x)).join(", ")}</div>
+${o.length?`<div class="mu">Inviter : ${o.map(p=>`<a href="#" onclick="inv(${q.id},'${p.id}');return false" style="color:var(--ac)">+${e(p.name)}</a>`).join(" ")}</div>`:""}
+${t.map(m=>`<div class="resp">${dot(m.user_id)}<b>${nm(m.user_id)}</b> : ${e(m.body)}</div>`).join("")}
+<div class="row" style="margin-top:6px"><input id="t${q.id}" placeholder="Écrire un message…"><button class="btn" onclick="post(${q.id})">Envoyer</button></div></div>`}
+function card(q){
+ const s=st(q),mine=q.by_user===uid,r=rs(q),ovl=R.filter(o=>o!==q&&ov(o,q)&&st(o)!=="d"&&s!=="d");
+ let h=`<div class="card" style="border-left:5px solid ${P(q.by_user).color}"><div class="row"><b>${dot(q.by_user)}${nm(q.by_user)} · ${fd(q.date_from)} → ${fd(q.date_to)}</b>${tg(q)}</div><div class="mu">${e(q.message)}</div>`;
+ if(s==="c")h+=`<div class="mu">${all(q)?"✅ Validée par tous les membres":"⏱ Délai écoulé sans refus : validée automatiquement"}</div>`;
+ if(s==="p")h+=`<div class="mu">⏱ Validation automatique dans ${left(q)}</div>`;
+ if(ovl.length)h+=`<div class="warn">👥 Chevauche ${ovl.map(o=>nm(o.by_user)).join(", ")} : séjour en commun si accord.</div>`;
+ if(s==="d")h+=`<div class="warn">Un refus a été exprimé : discussion nécessaire entre les personnes concernées.</div>`;
+ h+=`<div style="margin-top:8px">${resp(q)}</div>${thr(q)}`;
+ if(s!=="c"&&!mine){const x=r[uid];h+=x?`<div class="mu" style="margin-top:8px">Votre réponse : ${x.verdict==="ok"?"acceptée":"refusée"} <button class="btn o" onclick="undo(${q.id})">Modifier</button></div>`:
+ `<textarea id="c${q.id}" rows="2" style="margin-top:8px" placeholder="Commentaire ou autre proposition de dates…"></textarea><div class="row" style="margin-top:6px"><button class="btn" style="flex:1" onclick="ans(${q.id},'ok')">J'accepte</button><button class="btn r" style="flex:1" onclick="ans(${q.id},'no')">Refuser / proposer</button></div>`}
+ if(mine)h+=`<div class="row" style="margin-top:10px"><button class="btn o" style="flex:1" onclick="form={edit:${q.id}};render()">✏️ Modifier mes dates</button><button class="btn r" style="flex:1" onclick="modal=${q.id};render()">Annuler la demande</button></div>`;
+ return h+"</div>"}
+function cal(){
+ const y=mon.getFullYear(),mo=mon.getMonth(),first=(new Date(y,mo,1).getDay()+6)%7,n=new Date(y,mo+1,0).getDate(),pre=`${y}-${String(mo+1).padStart(2,"0")}`;
+ let g=["L","M","M","J","V","S","D"].map(x=>`<div class="h">${x}</div>`).join("")+"<div></div>".repeat(first);
+ for(let d=1;d<=n;d++){const s=`${pre}-${String(d).padStart(2,"0")}`;g+=`<div class="d">${d}${R.filter(q=>q.date_from<=s&&q.date_to>=s).map(q=>`<i style="${bar(q)}" title="${nm(q.by_user)}"></i>`).join("")}</div>`}
+ const leg=R.filter(q=>q.date_from.slice(0,7)<=pre&&q.date_to.slice(0,7)>=pre).map(q=>`<div class="resp">${tg(q)} ${dot(q.by_user)}${nm(q.by_user)} · ${fd(q.date_from)} → ${fd(q.date_to)}</div>`).join("");
+ return`<div class="row"><button class="btn o" onclick="mon=new Date(${y},${mo-1},1);render()">‹</button><b>${mon.toLocaleDateString("fr-FR",{month:"long",year:"numeric"})}</b><button class="btn o" onclick="mon=new Date(${y},${mo+1},1);render()">›</button></div><div class="card"><div class="g">${g}</div></div><div class="mu" style="margin:8px 0">${PR.map(p=>dot(p.id)+e(p.name)).join(" ")}<br>Plein = confirmée · clair = en attente · rayé = à discuter</div>${leg}`}
+function fm(){const q=form.edit?R.find(x=>x.id===form.edit):null,c=S.requester_chooses;
+ return`<h3>${q?"Modifier ma demande":"Nouvelle demande"}</h3><div class="card">${q?`<div class="warn" style="margin:0 0 6px">Dates plus courtes et incluses dans les anciennes : les accords sont conservés, seuls les refus sont à revalider. Sinon, tout le monde valide de nouveau.</div>`:""}
+ <label>Arrivée</label><input type="date" id="f1" value="${q?q.date_from:iso(20)}"><label>Départ</label><input type="date" id="f2" value="${q?q.date_to:iso(25)}">
+ <label>Message</label><textarea id="f3" rows="2" placeholder="Qui vient ? Pourquoi ces dates ?">${q?e(q.message):""}</textarea>
+ <label>Délai de réponse (${S.min_delay} à ${S.max_delay} jours)</label><input type="number" id="f4" min="${S.min_delay}" max="${S.max_delay}" value="${S.def_delay}" ${c?"":"disabled"}>
+ <div class="mu">${c?"Sans refus à l'échéance, la demande est validée automatiquement.":"Délai imposé par l'admin : "+S.def_delay+" jours."}</div>
+ <div class="row" style="margin-top:12px"><button class="btn o" onclick="form=null;render()">Annuler</button><button class="btn" onclick="send()">${q?"Relancer la validation":"Envoyer à la famille"}</button></div></div>`}
+function set(){const a=me.is_admin;
+ return`<h3>Mon profil</h3><div class="card"><label>Mon nom</label><input value="${e(me.name)}" onchange="prof({name:this.value.trim()||me.name})">
+ <label>Ma couleur</label><div class="row" style="justify-content:flex-start;flex-wrap:wrap">${SW.map(c=>{const o=taken(c);return`<span title="${o?"Prise par "+nm(o.id):""}" onclick="setColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;opacity:${o?.2:1};border:3px solid ${c===me.color?"var(--tx)":"transparent"}"></span>`}).join("")}<input type="color" value="${me.color}" style="width:44px;padding:2px" onchange="setColor(this.value)"></div>
+ <div class="mu">Chaque couleur est unique. S'il n'y en a plus de libre, choisissez-en une nouvelle avec le sélecteur.</div><button class="btn o" style="margin-top:10px" onclick="sb.auth.signOut()">Se déconnecter</button></div>
+ ${a?`<h3>Réglages</h3><div class="card"><label>Délai par défaut (jours)</label><input type="number" value="${S.def_delay}" onchange="cfg({def_delay:+this.value})"><label>Délai minimum</label><input type="number" value="${S.min_delay}" onchange="cfg({min_delay:+this.value})"><label>Délai maximum</label><input type="number" value="${S.max_delay}" onchange="cfg({max_delay:+this.value})">
+ <label><input type="checkbox" style="width:auto" ${S.requester_chooses?"checked":""} onchange="cfg({requester_chooses:this.checked})"> Le demandeur peut choisir le délai</label></div>
+ <h3>Invitations</h3><div class="card"><div class="mu">Seules ces adresses peuvent créer un compte. Envoyez ensuite le lien de l'appli.</div>${AL.map(x=>`<div class="row resp"><span>${e(x.email)}${x.make_admin?" (admin)":""}</span><button class="btn o" onclick="unallow('${e(x.email)}')">Retirer</button></div>`).join("")}
+ <div class="row" style="margin-top:8px"><input id="ne" type="email" placeholder="e-mail à inviter"><button class="btn" onclick="allow()">Inviter</button></div></div>`:""}
+ <div class="card"><b>Règles</b><div class="mu">• Un seul refus bloque la demande → discussion.<br>• Silence à l'échéance = accord ; tous d'accord = confirmée tout de suite.<br>• Modification incluse dans l'ancienne période : seuls les refus sont revalidés.<br>• Chevauchement possible si séjour partagé.</div></div>`}
+function mdl(){const q=R.find(x=>x.id===modal);if(!q)return"";
+ return`<div style="position:fixed;inset:0;background:#0007;display:flex;align-items:center;justify-content:center;padding:20px;z-index:9"><div class="card" style="max-width:340px;margin:0"><b>Annuler cette demande ?</b><p class="mu">Séjour du ${fd(q.date_from)} au ${fd(q.date_to)}. ${st(q)==="c"?"Elle est déjà confirmée : ":""}la discussion sera supprimée.</p><div class="row"><button class="btn o" style="flex:1" onclick="modal=null;render()">Non, la garder</button><button class="btn r" style="flex:1" onclick="del(${q.id})">Oui, annuler</button></div></div></div>`}
+function render(){
+ const m=document.getElementById("m");document.body.classList.toggle("out",!me);
+ if(!uid){m.innerHTML=authV();return}
+ if(!me){m.innerHTML='<div class="card">Compte créé mais profil introuvable. Contactez l\'administrateur.</div>';return}
+ who.innerHTML=dot(uid)+nm(uid);fab.style.display=tab==="req"&&!form?"block":"none";
+ let h="";
+ if(form)h=fm();else if(tab==="req"){const g=(t,f)=>{const l=R.filter(f);return l.length?`<h3>${t}</h3>`+l.map(card).join(""):""};h=g("À traiter / en cours",q=>st(q)!=="c")+g("Confirmées",q=>st(q)==="c")||'<p class="mu">Aucune demande pour le moment.</p>'}
+ else if(tab==="cal")h=cal();else h=set();
+ m.innerHTML=h+(modal?mdl():"")}
+
+async function send(){
+ const f=f1.value,t=f2.value;if(!f||!t||t<f){alert("Vérifiez les dates.");return}
+ let d=S.requester_chooses?+f4.value:S.def_delay;d=Math.min(S.max_delay,Math.max(S.min_delay,d||S.def_delay));
+ const deadline=new Date(Date.now()+d*D).toISOString(),m=f3.value;
+ if(form.edit){const q=R.find(x=>x.id===form.edit),r=rs(q),refs=Object.keys(r).filter(k=>r[k].verdict==="no"),sub=f>=q.date_from&&t<=q.date_to,old=`${fd(q.date_from)} → ${fd(q.date_to)}`;
+  const up={date_from:f,date_to:t,message:m||q.message};if(!sub||refs.length)up.deadline=deadline;
+  if(!await db(sb.from("requests").update(up).eq("id",q.id)))return;
+  await db(sb.rpc("reset_answers",{req:q.id,only_no:sub}));
+  const who=sub?refs.map(rn):[];
+  await sb.from("messages").insert({request_id:q.id,body:`Dates modifiées : ${old} devient ${fd(f)} → ${fd(t)}. `+(sub?"Période incluse dans l'ancienne : les accords déjà donnés sont conservés."+(who.length?" Nouvelle validation demandée à : "+who.join(", ")+".":""):"Nouvelle période : tout le monde est invité à valider de nouveau.")});
+ }else if(!await db(sb.from("requests").insert({date_from:f,date_to:t,message:m,deadline})))return;
+ form=null;load()}
+async function ans(id,v){const c=document.getElementById("c"+id).value;
+ if(await db(sb.from("answers").upsert({request_id:id,user_id:uid,verdict:v,comment:c}))){if(v==="no"&&c)await sb.from("messages").insert({request_id:id,body:c});load()}}
+async function undo(id){await db(sb.from("answers").delete().eq("request_id",id).eq("user_id",uid));load()}
+async function del(id){modal=null;await db(sb.from("requests").delete().eq("id",id));load()}
+async function post(id){const i=document.getElementById("t"+id),b=i.value.trim();if(!b)return;if(await db(sb.from("messages").insert({request_id:id,body:b})))load()}
+async function inv(id,u){await db(sb.from("invited").insert({request_id:id,user_id:u}));load()}
+async function prof(o){await db(sb.from("profiles").update(o).eq("id",uid));load()}
+function setColor(c){const o=taken(c);if(o){alert("Couleur trop proche de celle de "+rn(o.id)+".");render();return}prof({color:c})}
+async function cfg(o){await db(sb.from("settings").update(o).eq("id",1));load()}
+async function allow(){const v=ne.value.trim().toLowerCase();if(!v)return;await db(sb.from("allowed_emails").insert({email:v}));load()}
+async function unallow(v){await db(sb.from("allowed_emails").delete().eq("email",v));load()}
+
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.t;form=null;document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));render()});
+fab.onclick=()=>{form={};render()};
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js");
+setInterval(()=>{if(me&&!form&&!modal&&!/INPUT|TEXTAREA/.test(document.activeElement.tagName))render()},60000);
+init();
+</script></body></html>
