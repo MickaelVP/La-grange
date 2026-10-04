@@ -91,7 +91,7 @@ function card(q){
  h+=`<div style="margin-top:8px">${resp(q)}</div>${thr(q)}`;
  if(s!=="c"&&!mine){const x=r[uid];h+=x?`<div class="mu" style="margin-top:8px">Votre réponse : ${x.verdict==="ok"?"acceptée":"refusée"} <button class="btn o" onclick="undo(${q.id})">Modifier</button></div>`:
  `<textarea id="c${q.id}" rows="2" style="margin-top:8px" placeholder="Commentaire ou autre proposition de dates…"></textarea><div class="row" style="margin-top:6px"><button class="btn" style="flex:1" onclick="ans(${q.id},'ok')">J'accepte</button><button class="btn r" style="flex:1" onclick="ans(${q.id},'no')">Refuser / proposer</button></div>`}
- if(mine)h+=`<div class="row" style="margin-top:10px"><button class="btn o" style="flex:1" onclick="form={edit:${q.id}};render()">✏️ Modifier mes dates</button><button class="btn r" style="flex:1" onclick="modal=${q.id};render()">Annuler la demande</button></div>`;
+ if(mine)h+=`<div class="row" style="margin-top:10px"><button class="btn o" style="flex:1" onclick="openEdit(${q.id})">✏️ Modifier mes dates</button><button class="btn r" style="flex:1" onclick="modal=${q.id};render()">Annuler la demande</button></div>`;
  return h+"</div>"}
 function cal(){
  const y=mon.getFullYear(),mo=mon.getMonth(),first=(new Date(y,mo,1).getDay()+6)%7,n=new Date(y,mo+1,0).getDate(),pre=`${y}-${String(mo+1).padStart(2,"0")}`;
@@ -105,7 +105,7 @@ function fm(){const q=form.edit?R.find(x=>x.id===form.edit):null,c=S.requester_c
  <label>Message</label><textarea id="f3" rows="2" placeholder="Qui vient ? Pourquoi ces dates ?">${q?e(q.message):""}</textarea>
  <label>Délai de réponse (${S.min_delay} à ${S.max_delay} jours)</label><input type="number" id="f4" min="${S.min_delay}" max="${S.max_delay}" value="${S.def_delay}" ${c?"":"disabled"}>
  <div class="mu">${c?"Sans refus à l'échéance, la demande est validée automatiquement.":"Délai imposé par l'admin : "+S.def_delay+" jours."}</div>
- <div class="row" style="margin-top:12px"><button class="btn o" onclick="form=null;render()">Annuler</button><button class="btn" onclick="send()">${q?"Relancer la validation":"Envoyer à la famille"}</button></div></div>`}
+ <div class="row" style="margin-top:12px"><button class="btn o" onclick="closeForm()">Annuler</button><button class="btn" onclick="send()">${q?"Relancer la validation":"Envoyer à la famille"}</button></div></div>`}
 function set(){const a=me.is_admin;
  return`<h3>Mon profil</h3><div class="card"><label>Mon nom</label><input value="${e(me.name)}" onchange="prof({name:this.value.trim()||me.name})">
  <label>Ma couleur</label><div class="row" style="justify-content:flex-start;flex-wrap:wrap">${SW.map(c=>{const o=taken(c);return`<span title="${o?"Prise par "+nm(o.id):""}" onclick="setColor('${c}')" style="width:30px;height:30px;border-radius:50%;background:${c};cursor:pointer;opacity:${o?.2:1};border:3px solid ${c===me.color?"var(--tx)":"transparent"}"></span>`}).join("")}<input type="color" value="${me.color}" style="width:44px;padding:2px" onchange="setColor(this.value)"></div>
@@ -127,6 +127,8 @@ function render(){
  else if(tab==="cal")h=cal();else h=set();
  m.innerHTML=h+(modal?mdl():"")}
 
+function openEdit(id){form={edit:id};render()}
+function closeForm(){form=null;render()}
 async function send(){
  const f=f1.value,t=f2.value;if(!f||!t||t<f){alert("Vérifiez les dates.");return}
  let d=S.requester_chooses?+f4.value:S.def_delay;d=Math.min(S.max_delay,Math.max(S.min_delay,d||S.def_delay));
