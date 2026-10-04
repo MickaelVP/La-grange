@@ -1,0 +1,32 @@
+name: Entretien La Grange
+on:
+  schedule:
+    - cron: "0 6 * * *"      # chaque jour à 6h UTC
+  workflow_dispatch:          # lancement manuel possible
+jobs:
+  ping-et-sauvegarde:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping (évite la mise en veille)
+        run: |
+          curl -sf "https://kqmkmatdqpalygykmonz.supabase.co/rest/v1/settings?select=id" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
+      - name: Sauvegarde chiffrée (le lundi ou en lancement manuel)
+        env:
+          KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "$(date +%u)" != "1" ]; then echo "Pas lundi, pas de sauvegarde"; exit 0; fi
+          mkdir backup
+          for t in profiles settings requests answers messages invited allowed_emails; do
+            curl -sf "https://kqmkmatdqpalygykmonz.supabase.co/rest/v1/$t?select=*" -H "apikey: $KEY" -H "Authorization: Bearer $KEY" > backup/$t.json
+          done
+          tar czf backup.tgz backup
+          openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:PASS -in backup.tgz -out backup-$(date +%F).tgz.enc
+      - name: Conserver la sauvegarde (30 jours)
+        uses: actions/upload-artifact@v4
+        with:
+          name: sauvegarde-chiffree
+          path: backup-*.tgz.enc
+          retention-days: 30
+          if-no-files-found: ignore
